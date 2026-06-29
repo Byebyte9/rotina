@@ -133,6 +133,53 @@ class AuthService {
     }
   }
 
+  /// Solicita redefinição de senha por email.
+  static Future<({bool ok, String? error})> forgotPassword({
+    required String email,
+  }) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$_kBaseUrl/auth/forgot-password'),
+            headers: _headers,
+            body: jsonEncode({'email': email}),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) return (ok: true, error: null);
+      try {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        return (ok: false, error: body['error'] as String? ?? 'Erro ao enviar email');
+      } catch (_) {
+        return (ok: false, error: 'Erro ao enviar email');
+      }
+    } catch (_) {
+      return (ok: false, error: 'Não foi possível conectar ao servidor');
+    }
+  }
+
+  /// Reenvia o email de verificação.
+  static Future<({bool ok, String? error})> resendVerification({
+    required String token,
+  }) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$_kBaseUrl/auth/resend-verification'),
+            headers: _authHeaders(token),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) return (ok: true, error: null);
+      try {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        return (ok: false, error: body['error'] as String? ?? 'Erro ao enviar email');
+      } catch (_) {
+        return (ok: false, error: 'Erro ao enviar email');
+      }
+    } catch (_) {
+      return (ok: false, error: 'Não foi possível conectar ao servidor');
+    }
+  }
+
   static Future<({bool ok, String? error})> sendFeedback({
     required String token,
     required String tipo,
