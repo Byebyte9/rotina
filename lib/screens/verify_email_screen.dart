@@ -46,8 +46,29 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   bool _resent    = false;
 
   // Cooldown para reenvio
-  int _cooldown = 0;
+  int _cooldown = 60; // já começa em 60s — código acabou de ser enviado
   Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Inicia o countdown imediatamente (código já foi enviado no cadastro/resend anterior)
+    _startCooldown();
+    // Foca no primeiro campo
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focus[0].requestFocus();
+    });
+  }
+
+  void _startCooldown() {
+    _cooldown = 60;
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) { t.cancel(); return; }
+      setState(() { _cooldown--; });
+      if (_cooldown <= 0) t.cancel();
+    });
+  }
 
   @override
   void dispose() {
@@ -111,13 +132,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     });
 
     if (result.ok) {
-      // Cooldown de 60s
-      _cooldown = 60;
-      _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-        if (!mounted) { t.cancel(); return; }
-        setState(() { _cooldown--; });
-        if (_cooldown <= 0) t.cancel();
-      });
+      _startCooldown();
     }
   }
 

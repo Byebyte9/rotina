@@ -77,10 +77,10 @@ class _RotinaRoot extends StatelessWidget {
 
 /// Fluxo:
 ///   Splash
-///   → sem token  → AuthScreen
-///                    → login    → HomeShell
-///                    → cadastro → OnboardingScreen → HomeShell
-///   → com token  → onboardingDone? → HomeShell : OnboardingScreen → HomeShell
+///   → sem token       → AuthScreen
+///   → token + !verified → VerifyEmailScreen
+///   → token + !onboarding → OnboardingScreen
+///   → tudo ok         → HomeShell
 class _AppFlow extends StatefulWidget {
   const _AppFlow();
 
@@ -90,8 +90,6 @@ class _AppFlow extends StatefulWidget {
 
 class _AppFlowState extends State<_AppFlow> {
   bool _showSplash = true;
-
-  /// true se o usuário acabou de se cadastrar (vem da AuthScreen)
   bool _isNewUser = false;
 
   @override
@@ -106,12 +104,12 @@ class _AppFlowState extends State<_AppFlow> {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
 
-    // 1. Splash enquanto carrega ou no tempo mínimo
+    // 1. Splash
     if (!state.loaded || _showSplash) {
       return const SplashScreen();
     }
 
-    // 2. Sem token → tela de login/cadastro
+    // 2. Sem token → login/cadastro
     if (state.authToken == null) {
       return AuthScreen(
         onSuccess: ({required bool isNewUser}) {
@@ -120,15 +118,16 @@ class _AppFlowState extends State<_AppFlow> {
       );
     }
 
-    // 3a. Novo cadastro e email ainda não verificado → verificação primeiro
-    if (_isNewUser && !state.emailVerified) {
+    // 3. Token mas email não verificado → bloqueia aqui sempre
+    //    (tanto novo usuário quanto quem fechou o app antes de verificar)
+    if (!state.emailVerified) {
       return VerifyEmailScreen(
         autoShow: true,
         onVerified: () => setState(() {}),
       );
     }
 
-    // 3b. Com token mas onboarding pendente (cadastro novo ou logout+recadastro)
+    // 4. Email verificado mas onboarding pendente
     if (!state.onboardingDone) {
       return OnboardingScreen(
         initialName: _isNewUser ? state.userName : null,
@@ -136,7 +135,7 @@ class _AppFlowState extends State<_AppFlow> {
       );
     }
 
-    // 4. Tudo certo → app principal
+    // 5. Tudo certo → app principal
     return const HomeShell();
   }
 }
