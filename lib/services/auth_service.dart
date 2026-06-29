@@ -157,6 +157,31 @@ class AuthService {
     }
   }
 
+  /// Verifica o email com código de 6 dígitos.
+  static Future<({bool ok, String? error})> verifyEmailCode({
+    required String token,
+    required String code,
+  }) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$_kBaseUrl/auth/verify-email'),
+            headers: _authHeaders(token),
+            body: jsonEncode({'code': code}),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) return (ok: true, error: null);
+      try {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        return (ok: false, error: body['error'] as String? ?? 'Código inválido');
+      } catch (_) {
+        return (ok: false, error: 'Código inválido');
+      }
+    } catch (_) {
+      return (ok: false, error: 'Não foi possível conectar ao servidor');
+    }
+  }
+
   /// Reenvia o email de verificação.
   static Future<({bool ok, String? error})> resendVerification({
     required String token,

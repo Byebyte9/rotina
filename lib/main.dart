@@ -10,6 +10,7 @@ import 'screens/splash_screen.dart';
 import 'screens/auth_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/home_shell.dart';
+import 'screens/verify_email_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -119,10 +120,17 @@ class _AppFlowState extends State<_AppFlow> {
       );
     }
 
-    // 3. Com token mas onboarding pendente (cadastro novo ou logout+recadastro)
+    // 3a. Novo cadastro e email ainda não verificado → verificação primeiro
+    if (_isNewUser && !state.emailVerified) {
+      return VerifyEmailScreen(
+        autoShow: true,
+        onVerified: () => setState(() {}),
+      );
+    }
+
+    // 3b. Com token mas onboarding pendente (cadastro novo ou logout+recadastro)
     if (!state.onboardingDone) {
       return OnboardingScreen(
-        // Pré-preenche o nome com o que veio da API (email.split('@').first por ora)
         initialName: _isNewUser ? state.userName : null,
         onComplete: () => setState(() => _isNewUser = false),
       );

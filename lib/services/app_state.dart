@@ -34,6 +34,7 @@ class AppState extends ChangeNotifier {
   bool isDark = true;
   int focusSeconds = 0;
   String? authToken;
+  String userEmail = '';
   String userName = '';
   String? avatarPath;
   NotificationPrefs notifPrefs = NotificationPrefs();
@@ -259,6 +260,7 @@ class AppState extends ChangeNotifier {
     bool isNewUser = false,
   }) async {
     authToken = token;
+    userEmail = (user['email'] as String?) ?? userEmail;
     userName = (user['nome'] as String?) ?? userName;
     isFounder = (user['isFounder'] as bool?) ?? false;
     founderPosition = (user['founderPosition'] as int?);
@@ -277,6 +279,13 @@ class AppState extends ChangeNotifier {
     } else {
       await save();
     }
+    notifyListeners();
+  }
+
+  /// Marca o email como verificado localmente (após código confirmado).
+  Future<void> markEmailVerified() async {
+    emailVerified = true;
+    await _prefs.setBool(_kEmailVerifiedKey, true);
     notifyListeners();
   }
 
