@@ -1,0 +1,58 @@
+name: rotina
+description: "Rotina. — Sua vida em um app."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <5.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Localização pt-BR para widgets Material/Cupertino (DatePicker, TimePicker etc)
+  flutter_localizations:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.6
+
+  # HTTP client para chamar a rotina-api
+  http: ^1.2.1
+
+  # State management (simple, ChangeNotifier-based)
+  provider: ^6.1.2
+
+  # Local persistence (parecido com localStorage)
+  shared_preferences: ^2.2.3
+
+  # Fonts (Playfair Display + Inter, igual ao app web)
+  google_fonts: ^6.2.1
+  url_launcher: ^6.3.0
+
+  # UUID / unique ids para tasks e metas
+  uuid: ^4.4.0
+
+  # Formatação de datas em pt-BR
+  intl: ^0.20.2
+
+  # Notificações locais (lembretes de tarefas, sono, metas)
+  flutter_local_notifications: 19.4.0
+  timezone: ^0.10.0
+
+  # Foto de perfil: escolher da galeria e recortar
+  image_picker: ^1.1.2
+  image_cropper: ^8.0.2
+
+  # Armazenamento seguro do token JWT (Keystore no Android, Keychain no iOS)
+  flutter_secure_storage: ^9.2.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  # assets:
+  #   - assets/icons/

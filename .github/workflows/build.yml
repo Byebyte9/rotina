@@ -1,0 +1,122 @@
+name: Build Rotina (Android + iOS)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+
+  # ─────────────────────────────────────────────
+  # JOB 1 — Android (APK + AAB)
+  # ─────────────────────────────────────────────
+  build-android:
+    name: Build Android (APK + AAB)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Instalar Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Instalar dependências
+        run: flutter pub get
+
+      - name: Gerar gradle-wrapper
+        run: |
+          flutter create --platforms=android /tmp/wrapper_donor
+          cp /tmp/wrapper_donor/android/gradlew android/gradlew
+          cp /tmp/wrapper_donor/android/gradlew.bat android/gradlew.bat
+          cp /tmp/wrapper_donor/android/gradle/wrapper/gradle-wrapper.jar android/gradle/wrapper/gradle-wrapper.jar
+          chmod +x android/gradlew
+          rm -rf /tmp/wrapper_donor
+
+      - name: Analisar código (lint)
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        continue-on-error: true
+
+      - name: Build APK release
+        run: flutter build apk --release
+
+      - name: Build App Bundle (.aab)
+        run: flutter build appbundle --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: rotina-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: rotina-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+  # ─────────────────────────────────────────────
+  # JOB 2 — iOS (IPA sem codesign → AltStore)
+  # ─────────────────────────────────────────────
+  build-ios:
+    name: Build iOS (IPA sem codesign)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Instalar Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Instalar dependências
+        run: flutter pub get
+
+      - name: Gerar suporte iOS no projeto
+        run: |
+          # Remove pasta ios/ existente (pode estar incompleta/corrompida)
+          rm -rf ios/
+
+          # Adiciona suporte iOS diretamente no projeto real.
+          # O Flutter gera Podfile, xcodeproj e tudo mais apontando
+          # para o pubspec.yaml deste projeto — sem paths temporários.
+          flutter create --platforms=ios --org com.rotina .
+
+          echo "✅ ios/ gerada:"
+          ls ios/
+
+      - name: Build iOS (sem codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Empacotar .ipa
+        run: |
+          mkdir -p /tmp/ipa_payload/Payload
+          cp -r build/ios/iphoneos/Runner.app /tmp/ipa_payload/Payload/
+          cd /tmp/ipa_payload
+          zip -r rotina.ipa Payload
+          cp rotina.ipa $GITHUB_WORKSPACE/rotina.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: rotina-ipa
+          path: rotina.ipa
+          retention-days: 30
