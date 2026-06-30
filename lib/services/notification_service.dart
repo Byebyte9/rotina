@@ -92,11 +92,13 @@ class NotificationService {
   Future<void> init() async {
     if (_initialized) return;
     tzdata.initializeTimeZones();
-    try {
-      tz.setLocalLocation(tz.getLocation('America/Sao_Paulo'));
-    } catch (_) {
-      // se o nome da timezone não for reconhecido no dispositivo, mantém UTC
-    }
+    // BUG 19 fix: antes a timezone ficava fixa em America/Sao_Paulo, então
+    // qualquer usuário fora desse fuso (incluindo Manaus/Rio Branco, que têm
+    // offset diferente de São Paulo) recebia notificações na hora errada.
+    // Sem adicionar uma dependência nativa nova (flutter_timezone), usamos o
+    // offset UTC atual do dispositivo (nativo do Dart) para localizar o fuso
+    // IANA mais próximo dentre os que o pacote `timezone` já carrega.
+    _setLocalLocationFromDeviceOffset();
 
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidInit);
@@ -126,6 +128,44 @@ class NotificationService {
     );
 
     _initialized = true;
+  }
+
+  /// BUG 19 fix: tenta localizar o fuso IANA correto a partir do offset UTC
+  /// atual do dispositivo (`DateTime.now().timeZoneOffset`), em vez de fixar
+  /// "America/Sao_Paulo" para todo mundo. Cobre os fusos do Brasil de forma
+  /// explícita (já que é o público majoritário do app hoje) e cai num fuso
+  /// fixo (Etc/GMT) compatível com o offset para os demais casos, o que pelo
+  /// menos acerta o horário das notificações mesmo sem soltar o nome exato
+  /// da timezone do usuário.
+  void _setLocalLocationFromDeviceOffset() {
+    final offset = DateTime.now().timeZoneOffset;
+
+    // Mapa dos fusos oficiais do Brasil (não observam horário de verão desde 2019).
+    const brazilOffsets = <int, String>{
+      -2: 'America/Noronha',
+      -3: 'America/Sao_Paulo',
+      -4: 'America/Manaus',
+      -5: 'America/Rio_Branco',
+    };
+
+    final hours = offset.inMinutes ~/ 60;
+    final candidate = brazilOffsets[hours];
+
+    try {
+      if (candidate != null) {
+        tz.setLocalLocation(tz.getLocation(candidate));
+        return;
+      }
+      // Fora do Brasil: usa um fuso fixo equivalente ao offset atual.
+      // Etc/GMT usa sinal invertido por convenção POSIX (Etc/GMT-3 = UTC+3).
+      final sign = offset.isNegative ? '+' : '-';
+      final etcName = 'Etc/GMT$sign${hours.abs()}';
+      tz.setLocalLocation(tz.getLocation(etcName));
+    } catch (_) {
+      // Se nada bater (offset com minutos fracionários, ex: índia +5:30,
+      // ou nome não carregado), mantém o fuso local padrão do pacote (UTC)
+      // em vez de travar a inicialização das notificações.
+    }
   }
 
   /// Quando o app está aberto (primeiro plano) e o usuário toca na ação

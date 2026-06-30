@@ -92,6 +92,16 @@ class AppState extends ChangeNotifier {
     // foi em outro dia — garante que tarefas recorrentes comecem desmarcadas.
     _resetDoneIfNewDay();
 
+    // BUG 3 fix: reconcilia todayCount com o valor real dos checkins de hoje.
+    // O campo é serializado, mas pode ficar dessincronizado após reset de dia
+    // ou pull do servidor. Sempre recalcula ao carregar.
+    _reconcileTodayCounts();
+
+    // BUG 27 fix: calibra _idSeed para ser maior que qualquer ID já existente.
+    // Sem isso, após um logout/login ou reinstalação, _idSeed começa do timestamp
+    // atual e pode colidir com IDs de tarefas/metas carregados do servidor.
+    _rehydrateIdSeed();
+
     _loaded = true;
     notifyListeners();
     unawaited(_rescheduleNotifications());
@@ -104,9 +114,38 @@ class AppState extends ChangeNotifier {
     final lastReset = _prefs.getString(_kLastResetKey) ?? '';
     if (lastReset != today) {
       for (final t in tasks) {
-        t.done = false;
+        // BUG 15 fix: só reseta tarefas recorrentes.
+        // Tarefas com RecMode.none são únicas e devem permanecer concluídas.
+        if (t.recurrence.isRecurrent) t.done = false;
       }
       _prefs.setString(_kLastResetKey, today);
+    }
+  }
+
+  /// BUG 27 fix: garante que _idSeed seja sempre maior que o maior ID já em uso.
+  /// Chamado após load() e syncFromServer() para evitar colisões de ID.
+  void _rehydrateIdSeed() {
+    int maxId = _idSeed;
+    for (final t in tasks) {
+      if (t.id >= maxId) maxId = t.id + 1;
+    }
+    for (final m in metas) {
+      if (m.id >= maxId) maxId = m.id + 1;
+    }
+    _idSeed = maxId;
+  }
+
+  /// BUG 3 fix: reconcilia todayCount de todas as metas com o valor real dos
+  /// checkins de hoje. Chamado no load() e após syncFromServer() para garantir
+  /// que widgets que exibem "quantas vezes hoje" mostrem o número correto.
+  void _reconcileTodayCounts() {
+    final todayKey = _fmtDate(DateTime.now());
+    for (final m in metas) {
+      if (m.type == MetaType.count) {
+        m.todayCount = (m.checkins[todayKey] as num?)?.toInt() ?? 0;
+      } else if (m.type == MetaType.habit) {
+        m.todayCount = (m.checkins[todayKey] == true) ? 1 : 0;
+      }
     }
   }
 
@@ -340,17 +379,32 @@ class AppState extends ChangeNotifier {
       );
 
       // Bug 6 fix: restaura o histórico diário (DayData) recebido do servidor
+      // BUG 10 fix: antes, a checagem `entry.value is String` falhava
+      // silenciosamente (sem erro, sem log) se o servidor/driver retornasse
+      // o JSONB já desserializado como Map em vez de String — o histórico
+      // diário simplesmente não era restaurado, sem nenhum aviso. Agora
+      // trata os dois formatos possíveis: String (já serializada) ou
+      // Map/List (precisa ser serializada de volta antes de gravar no
+      // SharedPreferences local, que só aceita String).
       final dayDataMap = map['dayData'] as Map<String, dynamic>?;
       if (dayDataMap != null) {
         for (final entry in dayDataMap.entries) {
-          if (entry.key.startsWith(_kDayPrefix) && entry.value is String) {
-            await _prefs.setString(entry.key, entry.value as String);
+          if (!entry.key.startsWith(_kDayPrefix)) continue;
+          final value = entry.value;
+          if (value is String) {
+            await _prefs.setString(entry.key, value);
+          } else if (value is Map || value is List) {
+            await _prefs.setString(entry.key, jsonEncode(value));
           }
+          // outros tipos (null, num, bool) não são um DayData válido: ignora
         }
       }
 
       // Persiste o estado principal direto no _prefs (sem chamar save())
-      // para não disparar um syncToServer() logo após o pull (bug 4)
+      // para não disparar um syncToServer() logo após o pull (bug 4).
+      // BUG 29 fix: inclui avatarPath para que o valor local não seja
+      // apagado quando o stateMap sobrescreve o _kStateKey — avatarPath
+      // é caminho local e não vai no exportJson(), mas deve persistir aqui.
       final stateMap = {
         'tasks': tasks.map((t) => t.toJson()).toList(),
         'metas': metas.map((m) => m.toJson()).toList(),
@@ -358,9 +412,18 @@ class AppState extends ChangeNotifier {
         'theme': isDark ? 'dark' : 'light',
         'focusSeconds': focusSeconds,
         'userName': userName,
+        'avatarPath': avatarPath,
         'notifPrefs': notifPrefs.toJson(),
       };
       await _prefs.setString(_kStateKey, jsonEncode(stateMap));
+
+      // BUG 27 fix: recalibra _idSeed após restaurar dados do servidor,
+      // pois os IDs vindos do server podem ser maiores que o seed atual.
+      _rehydrateIdSeed();
+
+      // BUG 3 fix: reconcilia todayCount após restaurar metas do servidor.
+      _reconcileTodayCounts();
+
       notifyListeners();
       unawaited(_rescheduleNotifications());
     } catch (_) {
@@ -406,8 +469,9 @@ class AppState extends ChangeNotifier {
   List<Task> get todayTasks => getTasksForDate(DateTime.now());
 
   Future<void> toggleTask(int id) async {
-    final t = tasks.firstWhere((x) => x.id == id);
-    t.done = !t.done;
+    final idx = tasks.indexWhere((x) => x.id == id);
+    if (idx < 0) return; // tarefa deletada ou ID inválido (ex: notificação stale)
+    tasks[idx].done = !tasks[idx].done;
     await save();
   }
 
@@ -470,7 +534,9 @@ class AppState extends ChangeNotifier {
 
   /// Check-in de meta tipo habit (toggle) ou count (sempre soma).
   Future<void> checkIn(int metaId) async {
-    final m = metas.firstWhere((x) => x.id == metaId);
+    final idx = metas.indexWhere((x) => x.id == metaId);
+    if (idx < 0) return; // meta deletada ou ID inválido
+    final m = metas[idx];
     final todayKey = _fmtDate(DateTime.now());
 
     if (m.type == MetaType.habit) {
@@ -485,9 +551,38 @@ class AppState extends ChangeNotifier {
     } else {
       final cur = (m.checkins[todayKey] as num?)?.toInt() ?? 0;
       m.checkins[todayKey] = cur + 1;
+      m.todayCount = cur + 1; // BUG 3 fix: atualiza todayCount para widgets que o exibem
       m.current = (m.current + 1).clamp(0, m.target);
       _recalcStreak(m);
     }
+    await save();
+  }
+
+  /// BUG 4 fix: desfaz o último registro de hoje numa meta tipo `count`.
+  /// Diferente de `checkIn`, que só soma para metas count, este método
+  /// permite corrigir um toque acidental em "＋ Registrar" sem ter que
+  /// esperar o dia seguinte ou editar a meta manualmente.
+  /// Não tem efeito em metas `habit` (já são toggle via checkIn) nem `hours`
+  /// (controladas pelo timer de foco).
+  Future<void> undoCheckIn(int metaId) async {
+    final idx = metas.indexWhere((x) => x.id == metaId);
+    if (idx < 0) return;
+    final m = metas[idx];
+    if (m.type != MetaType.count) return;
+
+    final todayKey = _fmtDate(DateTime.now());
+    final cur = (m.checkins[todayKey] as num?)?.toInt() ?? 0;
+    if (cur <= 0) return; // nada para desfazer hoje
+
+    final updated = cur - 1;
+    if (updated <= 0) {
+      m.checkins.remove(todayKey);
+    } else {
+      m.checkins[todayKey] = updated;
+    }
+    m.todayCount = updated;
+    m.current = (m.current - 1).clamp(0, m.target);
+    _recalcStreak(m);
     await save();
   }
 
@@ -525,7 +620,9 @@ class AppState extends ChangeNotifier {
   /// Registra tempo de foco (timer) numa meta tipo "hours".
   Future<void> addFocusSeconds(int metaId, int secs) async {
     if (secs <= 0) return;
-    final m = metas.firstWhere((x) => x.id == metaId);
+    final idx = metas.indexWhere((x) => x.id == metaId);
+    if (idx < 0) return; // meta deletada ou ID inválido (ex: sync em outro dispositivo)
+    final m = metas[idx];
     m.focusSecs = (m.focusSecs) + secs;
     if (m.type == MetaType.hours) {
       m.current = (m.current + secs / 3600).clamp(0, m.target);
@@ -548,6 +645,9 @@ class AppState extends ChangeNotifier {
   Future<void> saveDayData(String dateKey, DayData data) async {
     await _prefs.setString(_kDayPrefix + dateKey, jsonEncode(data.toJson()));
     notifyListeners();
+    // Sincroniza com servidor para que DayData não fique só local.
+    // Sem isso, notas, sono e dots de dias específicos são perdidos ao trocar de aparelho.
+    if (authToken != null) unawaited(syncToServer());
   }
 
   /// Sono REGISTRADO de hoje (DayData de hoje), com fallback para o padrão

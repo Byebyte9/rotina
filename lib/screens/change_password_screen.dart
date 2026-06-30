@@ -197,9 +197,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: c.red.withOpacity(0.12),
+                color: c.red.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: c.red.withOpacity(0.3)),
+                border: Border.all(color: c.red.withValues(alpha: 0.3)),
               ),
               child: Text(_errorMsg!, style: TextStyle(color: c.red, fontSize: 13)),
             ),
@@ -213,7 +213,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: c.creamSoft,
                 foregroundColor: c.bg,
-                disabledBackgroundColor: c.creamSoft.withOpacity(0.4),
+                disabledBackgroundColor: c.creamSoft.withValues(alpha: 0.4),
                 padding: const EdgeInsets.symmetric(vertical: 15),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 elevation: 0,

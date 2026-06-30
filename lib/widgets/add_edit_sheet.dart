@@ -148,6 +148,22 @@ class _AddEditSheetState extends State<_AddEditSheet> {
   Future<void> _save() async {
     final name = nameCtrl.text.trim();
     if (name.isEmpty) return;
+
+    // BUG 5 fix: valida recorrência semanal sem dias selecionados.
+    // Sem esse check, a tarefa fica com days=[] e nunca aparece no "Hoje".
+    if (type == _AddType.task &&
+        recurrence.mode == RecMode.repeat &&
+        recurrence.period == RecPeriod.semana &&
+        recurrence.days.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecione ao menos um dia da semana para a recorrência.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     final state = context.read<AppState>();
 
     if (type == _AddType.task) {

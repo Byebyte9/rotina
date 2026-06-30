@@ -23,6 +23,11 @@ class NotificationPrefs {
   // Saudação no horário de acordar
   bool goodMorning;
 
+  // BUG 17 fix: campo próprio para feedback háptico ao marcar tarefa.
+  // Antes estava mapeado erroneamente em taskReminderAtTime, o que ativava
+  // as notificações na hora exata sem o usuário saber.
+  bool hapticFeedback;
+
   NotificationPrefs({
     this.taskReminderBefore = true,
     this.taskReminderMinutesBefore = 10,
@@ -34,6 +39,7 @@ class NotificationPrefs {
     this.sleepReminder = false,
     this.sleepReminderMinutesBefore = 30,
     this.goodMorning = true,
+    this.hapticFeedback = true,
   });
 
   Map<String, dynamic> toJson() => {
@@ -47,6 +53,7 @@ class NotificationPrefs {
         'sleepReminder': sleepReminder,
         'sleepReminderMinutesBefore': sleepReminderMinutesBefore,
         'goodMorning': goodMorning,
+        'hapticFeedback': hapticFeedback,
       };
 
   factory NotificationPrefs.fromJson(Map<String, dynamic>? json) {
@@ -62,6 +69,7 @@ class NotificationPrefs {
       sleepReminder: json['sleepReminder'] as bool? ?? false,
       sleepReminderMinutesBefore: (json['sleepReminderMinutesBefore'] as num?)?.toInt() ?? 30,
       goodMorning: json['goodMorning'] as bool? ?? true,
+      hapticFeedback: json['hapticFeedback'] as bool? ?? true,
     );
   }
 }

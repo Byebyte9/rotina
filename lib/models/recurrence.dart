@@ -18,8 +18,15 @@ RecPeriod recPeriodFromString(String s) {
 
 String recPeriodToString(RecPeriod p) {
   switch (p) {
+    // BUG 12 fix: serializa sem acento. Antes gravava 'mês' (com acento),
+    // o que o próprio app sempre leu de volta corretamente (fromJson aceita
+    // os dois), mas é uma armadilha para qualquer consulta externa direta
+    // ao banco/JSON (problemas de encoding, comparação case/acento-sensível,
+    // URLs). Dados antigos com 'mês' continuam sendo lidos normalmente pelo
+    // fallback em recPeriodFromString — esta mudança só afeta o que é
+    // gravado a partir de agora.
     case RecPeriod.mes:
-      return 'mês';
+      return 'mes';
     case RecPeriod.ano:
       return 'ano';
     case RecPeriod.semana:

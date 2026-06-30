@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../services/app_state.dart';
 import '../../models/notification_prefs.dart';
@@ -29,7 +30,6 @@ class ConfigProdutividadeScreen extends StatelessWidget {
             ],
           ),
         ),
-        // Bug 8 fix: toggles conectados ao NotificationPrefs real
         AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -38,20 +38,22 @@ class ConfigProdutividadeScreen extends StatelessWidget {
               CfgRow(
                 label: 'Resetar tarefas diárias',
                 sub: 'Às meia-noite automaticamente',
-                // Este comportamento é fixo (reset acontece sempre no load)
                 trailing: const CfgValue('Sempre ativo'),
               ),
+              // BUG 17 fix: "Vibrar ao completar" agora usa hapticFeedback,
+              // campo separado de taskReminderAtTime (notificação na hora exata).
+              // Antes, ativar este toggle ligava silenciosamente as notificações.
               CfgRow(
                 label: 'Vibrar ao completar',
                 sub: 'Feedback háptico ao marcar tarefa',
                 showBorder: false,
                 trailing: CfgToggle(
-                  value: prefs.taskReminderAtTime,
+                  value: prefs.hapticFeedback,
                   onChanged: (val) {
                     final updated = NotificationPrefs(
                       taskReminderBefore: prefs.taskReminderBefore,
                       taskReminderMinutesBefore: prefs.taskReminderMinutesBefore,
-                      taskReminderAtTime: val,
+                      taskReminderAtTime: prefs.taskReminderAtTime,
                       endOfDayReminder: prefs.endOfDayReminder,
                       endOfDayHour: prefs.endOfDayHour,
                       endOfDayMinute: prefs.endOfDayMinute,
@@ -59,7 +61,10 @@ class ConfigProdutividadeScreen extends StatelessWidget {
                       sleepReminder: prefs.sleepReminder,
                       sleepReminderMinutesBefore: prefs.sleepReminderMinutesBefore,
                       goodMorning: prefs.goodMorning,
+                      hapticFeedback: val,
                     );
+                    // Dispara o haptic imediatamente como preview da configuração
+                    if (val) HapticFeedback.mediumImpact();
                     state.updateNotificationPrefs(updated);
                   },
                 ),
@@ -74,7 +79,9 @@ class ConfigProdutividadeScreen extends StatelessWidget {
               const CfgSectionTitle('Streaks'),
               CfgRow(
                 label: 'Resumo semanal de metas',
-                sub: 'Notificação todo domingo',
+                // BUG 18 fix: o código agenda para segunda-feira (DateTime.monday).
+                // A label anterior dizia "domingo" — agora está alinhada com o código.
+                sub: 'Notificação toda segunda às 9h',
                 showBorder: false,
                 trailing: CfgToggle(
                   value: prefs.weeklyMetaSummary,
@@ -90,6 +97,7 @@ class ConfigProdutividadeScreen extends StatelessWidget {
                       sleepReminder: prefs.sleepReminder,
                       sleepReminderMinutesBefore: prefs.sleepReminderMinutesBefore,
                       goodMorning: prefs.goodMorning,
+                      hapticFeedback: prefs.hapticFeedback,
                     );
                     state.updateNotificationPrefs(updated);
                   },

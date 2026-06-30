@@ -14,7 +14,7 @@ Future<void> showDeletingOverlay(
   showDialog(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withOpacity(0.88),
+    barrierColor: Colors.black.withValues(alpha: 0.88),
     builder: (_) => _CoffeeOverlay(isDark: isDark, label: label),
   );
 
@@ -146,7 +146,7 @@ class _CoffeeCupPainter extends CustomPainter {
         height: h * 0.08,
       ),
       Paint()
-        ..color = cupColor.withOpacity(0.40)
+        ..color = cupColor.withValues(alpha: 0.40)
         ..style = PaintingStyle.fill,
     );
 
@@ -182,7 +182,7 @@ class _CoffeeCupPainter extends CustomPainter {
 
     // Listras internas
     final stripe = Paint()
-      ..color = cupColor.withOpacity(0.25)
+      ..color = cupColor.withValues(alpha: 0.25)
       ..strokeWidth = 1.8
       ..strokeCap = StrokeCap.round;
     for (int i = 0; i < 3; i++) {
@@ -240,7 +240,7 @@ class _CoffeeCupPainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = steamColor.withOpacity(op)
+        ..color = steamColor.withValues(alpha: op)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.6
         ..strokeCap = StrokeCap.round

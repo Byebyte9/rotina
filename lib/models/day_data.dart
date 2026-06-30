@@ -22,6 +22,14 @@ class SleepData {
     if (mins < 0) mins += 1440;
     return mins;
   }
+
+  /// BUG 14 fix: quando start == end, durationMinutes retorna 0 — mas isso
+  /// é ambíguo: pode significar "dormiu 0 minutos" (sem sentido prático) ou
+  /// "ainda não configurou o horário de sono" (caso mais provável, já que
+  /// os defaults '23:00'/'07:00' nunca colidem por acaso). A UI deve usar
+  /// esta propriedade para mostrar algo como "Sono não configurado" em vez
+  /// de "0h0m", que sugeriria uma noite sem dormir.
+  bool get isLikelyUnset => start == end;
 }
 
 /// Espelha os dados gravados por dia no localStorage (`day_YYYY-MM-DD`):

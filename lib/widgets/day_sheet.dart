@@ -78,13 +78,23 @@ class _DaySheetState extends State<_DaySheet> {
   Future<void> _save() async {
     final state = context.read<AppState>();
 
+    // BUG 9 fix: para hoje, a fonte de verdade é t.done (atualizado em tempo
+    // real por toggleTask), não taskDoneOverride — esse mapa só é mantido
+    // para dias passados/futuros, já que o toggle de hoje nunca escreve nele.
+    // Usar taskDoneOverride também para hoje salvava o DayData com o estado
+    // de tasksDone capturado no momento do initState, ignorando qualquer
+    // toggle feito durante a sessão do sheet.
+    final tasksDone = isToday
+        ? state.todayTasks.where((t) => t.done).map((t) => t.id).toList()
+        : taskDoneOverride.entries.where((e) => e.value).map((e) => e.key).toList();
+
     // Salva tudo do dia (nota, status, sono e tarefas) numa única escrita.
     // O sono fica registrado SÓ neste dia — nunca sobrescreve o padrão global.
     final newData = DayData(
       note: noteCtrl.text,
       dot: dot,
       sleep: SleepData(start: sleepStart, end: sleepEnd),
-      tasksDone: taskDoneOverride.entries.where((e) => e.value).map((e) => e.key).toList(),
+      tasksDone: tasksDone,
     );
     await state.saveDayData(dateKey, newData);
 

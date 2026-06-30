@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/app_state.dart';
 import '../services/habit_suggestions.dart';
 import '../theme/app_theme.dart';
+import 'pickers.dart';
 
 /// Ponto de entrada do assistente de boas-vindas: mostra primeiro o modal
 /// com a pergunta "Tem dúvidas em quais hábitos criar ou melhorar?" e,
@@ -146,10 +147,11 @@ class _RoutineWizardScreenState extends State<_RoutineWizardScreen> {
   final Set<String> selectedCategoryIds = {};
   final Set<String> selectedExtraIds = {};
 
-  // Helpers de horário (sliders simples de hora cheia, sem picker pra ficar
-  // rápido de responder dentro do próprio wizard).
-  int wakeHour = 7;
-  int sleepHour = 23;
+  // BUG 26 fix: antes eram sliders de hora cheia (int, sempre :00).
+  // Agora usam o mesmo wheel picker de horário (showTimePickerSheet) já
+  // usado em add_edit_sheet.dart, permitindo minutos como 23:30 ou 6:45.
+  String wakeTime = '07:00';
+  String sleepTime = '23:00';
 
   @override
   void initState() {
@@ -158,8 +160,8 @@ class _RoutineWizardScreenState extends State<_RoutineWizardScreen> {
   }
 
   void _refreshCatalog() {
-    profile.wakeTime = '${wakeHour.toString().padLeft(2, '0')}:00';
-    profile.sleepTime = '${sleepHour.toString().padLeft(2, '0')}:00';
+    profile.wakeTime = wakeTime;
+    profile.sleepTime = sleepTime;
     _catalog = HabitCategoryCatalog.build(profile);
   }
 
@@ -216,10 +218,10 @@ class _RoutineWizardScreenState extends State<_RoutineWizardScreen> {
           key: const ValueKey('wake'),
           title: 'Como é a sua rotina?',
           subtitle: 'Que horas você costuma acordar e dormir?',
-          wakeHour: wakeHour,
-          sleepHour: sleepHour,
-          onWakeChanged: (v) => setState(() => wakeHour = v),
-          onSleepChanged: (v) => setState(() => sleepHour = v),
+          wakeTime: wakeTime,
+          sleepTime: sleepTime,
+          onWakeChanged: (v) => setState(() => wakeTime = v),
+          onSleepChanged: (v) => setState(() => sleepTime = v),
           onNext: () {
             _refreshCatalog();
             _goTo(_Step.focus);
@@ -346,14 +348,14 @@ Widget _wizardFooter(
   );
 }
 
-/// Passo 1: horário de dormir/acordar com sliders simples.
+/// Passo 1: horário de dormir/acordar via wheel picker (hora + minuto).
 class _ScheduleStep extends StatelessWidget {
   final String title;
   final String subtitle;
-  final int wakeHour;
-  final int sleepHour;
-  final ValueChanged<int> onWakeChanged;
-  final ValueChanged<int> onSleepChanged;
+  final String wakeTime;
+  final String sleepTime;
+  final ValueChanged<String> onWakeChanged;
+  final ValueChanged<String> onSleepChanged;
   final VoidCallback onNext;
   final VoidCallback onSkip;
 
@@ -361,8 +363,8 @@ class _ScheduleStep extends StatelessWidget {
     super.key,
     required this.title,
     required this.subtitle,
-    required this.wakeHour,
-    required this.sleepHour,
+    required this.wakeTime,
+    required this.sleepTime,
     required this.onWakeChanged,
     required this.onSleepChanged,
     required this.onNext,
@@ -383,18 +385,20 @@ class _ScheduleStep extends StatelessWidget {
             child: ListView(
               children: [
                 _hourPickerRow(
+                  context,
                   c,
                   icon: Icons.wb_sunny_outlined,
                   label: 'Acordo às',
-                  hour: wakeHour,
+                  time: wakeTime,
                   onChanged: onWakeChanged,
                 ),
                 const SizedBox(height: 20),
                 _hourPickerRow(
+                  context,
                   c,
                   icon: Icons.nightlight_round,
                   label: 'Durmo às',
-                  hour: sleepHour,
+                  time: sleepTime,
                   onChanged: onSleepChanged,
                 ),
               ],
@@ -406,45 +410,48 @@ class _ScheduleStep extends StatelessWidget {
     );
   }
 
+  // BUG 26 fix: trocado de Slider (só hora cheia, sempre :00) para o mesmo
+  // wheel picker de hora+minuto usado no resto do app (showTimePickerSheet),
+  // permitindo horários como 23:30 ou 6:45 já na configuração inicial.
   Widget _hourPickerRow(
+    BuildContext context,
     AppColors c, {
     required IconData icon,
     required String label,
-    required int hour,
-    required ValueChanged<int> onChanged,
+    required String time,
+    required ValueChanged<String> onChanged,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: c.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: c.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 18, color: c.creamSoft),
-              const SizedBox(width: 8),
-              Text(label, style: AppFonts.inter(color: c.text, fontSize: 14, fontWeight: FontWeight.w600)),
-              const Spacer(),
-              Text(
-                '${hour.toString().padLeft(2, '0')}:00',
-                style: AppFonts.playfair(color: c.cream, fontSize: 18, italic: true),
-              ),
-            ],
-          ),
-          Slider(
-            value: hour.toDouble(),
-            min: 0,
-            max: 23,
-            divisions: 23,
-            activeColor: c.creamSoft,
-            inactiveColor: c.border,
-            onChanged: (v) => onChanged(v.round()),
-          ),
-        ],
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () async {
+        final result = await showTimePickerSheet(
+          context,
+          initialTime: time,
+          title: label,
+        );
+        if (result != null) onChanged(result);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: c.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: c.border),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: c.creamSoft),
+            const SizedBox(width: 8),
+            Text(label, style: AppFonts.inter(color: c.text, fontSize: 14, fontWeight: FontWeight.w600)),
+            const Spacer(),
+            Text(
+              time,
+              style: AppFonts.playfair(color: c.cream, fontSize: 18, italic: true),
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.keyboard_arrow_down, size: 18, color: c.textMuted),
+          ],
+        ),
       ),
     );
   }

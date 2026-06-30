@@ -34,11 +34,21 @@ class _ConfigFeedbackScreenState extends State<ConfigFeedbackScreen> {
   Future<void> _send() async {
     final msg = _msgCtrl.text.trim();
     if (msg.isEmpty) return;
-    setState(() { _sending = true; _error = null; });
 
     final token = context.read<AppState>().authToken;
+    // BUG 25 fix: antes o código fazia `token: token ?? ''` e deixava o
+    // servidor rejeitar com 401, mostrando só "Erro ao enviar feedback"
+    // sem explicar o motivo real. Agora falha de forma explícita e clara
+    // antes mesmo de tentar a requisição.
+    if (token == null) {
+      setState(() => _error = 'Você precisa estar logado para enviar feedback.');
+      return;
+    }
+
+    setState(() { _sending = true; _error = null; });
+
     final result = await AuthService.sendFeedback(
-      token: token ?? '',
+      token: token,
       tipo: _type.name,
       mensagem: msg,
     );

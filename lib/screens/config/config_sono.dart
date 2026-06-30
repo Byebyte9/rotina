@@ -106,7 +106,11 @@ class _ConfigSonoScreenState extends State<ConfigSonoScreen> {
       final d = now.subtract(Duration(days: i));
       final key = state.fmtDateKey(d);
       final dayData = state.getDayData(key);
-      if (dayData.sleep != null) {
+      // BUG 14 fix: dias com sleep registrado mas start==end (não
+      // configurado de fato) não devem entrar na média como "0h de sono"
+      // — isso puxaria a média geral incorretamente para baixo, mesmo o
+      // usuário nunca tendo de fato dormido 0h naquele dia.
+      if (dayData.sleep != null && !dayData.sleep!.isLikelyUnset) {
         totalMins += dayData.sleep!.durationMinutes;
         count++;
       }

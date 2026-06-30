@@ -56,6 +56,14 @@ class _AuthScreenState extends State<AuthScreen>
         setState(() {
           _isLogin = _tabCtrl.index == 0;
           _errorMsg = null;
+          // BUG 22 fix: limpa os campos de senha ao trocar de aba.
+          // Mantém o email preenchido (é razoável reaproveitar), mas senha e
+          // confirmação não devem vazar de um contexto (cadastro) para outro
+          // (login) nem ficar acumuladas se o usuário ficar trocando de aba.
+          _senhaCtrl.clear();
+          _confirmSenhaCtrl.clear();
+          _senhaVisible = false;
+          _confirmVisible = false;
         });
       }
     });

@@ -83,7 +83,7 @@ class _FounderScreenState extends State<FounderScreen>
                       border: Border.all(color: _gold, width: 2),
                       boxShadow: [
                         BoxShadow(
-                          color: _gold.withOpacity(0.25),
+                          color: _gold.withValues(alpha: 0.25),
                           blurRadius: 32,
                           spreadRadius: 4,
                         ),
@@ -117,8 +117,8 @@ class _FounderScreenState extends State<FounderScreen>
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: _accent.withOpacity(0.15),
-                      border: Border.all(color: _accent.withOpacity(0.5)),
+                      color: _accent.withValues(alpha: 0.15),
+                      border: Border.all(color: _accent.withValues(alpha: 0.5)),
                       borderRadius: BorderRadius.circular(99),
                     ),
                     child: Text(

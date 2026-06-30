@@ -68,9 +68,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final focusLabel = state.focusSeconds > 0 ? _formatSecs(state.focusSeconds) : '0m';
 
-    final sleepMins = state.getTodaySleep().durationMinutes;
-    final sleepLabel =
-        '${sleepMins ~/ 60}h${sleepMins % 60 > 0 ? '${sleepMins % 60}m' : ''}';
+    final todaySleep = state.getTodaySleep();
+    final sleepMins = todaySleep.durationMinutes;
+    // BUG 14 fix: start == end resulta em durationMinutes == 0, que é
+    // ambíguo entre "dormiu 0 minutos" e "sono não configurado ainda" (caso
+    // mais provável). Mostra um label claro em vez de "0h0m" enganoso.
+    final sleepLabel = todaySleep.isLikelyUnset
+        ? '—'
+        : '${sleepMins ~/ 60}h${sleepMins % 60 > 0 ? '${sleepMins % 60}m' : ''}';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),

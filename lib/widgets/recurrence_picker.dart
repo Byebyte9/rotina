@@ -57,6 +57,9 @@ class _RecurrencePickerState extends State<RecurrencePicker> {
       mode = m;
       if (mode == RecMode.repeat || mode == RecMode.custom) {
         days = [];
+        // BUG 6 fix: reseta freq ao trocar de modo para evitar "5x por semana
+        // com 0 dias selecionados" após voltar do modo custom.
+        freq = 1;
       }
     });
     _emit();
@@ -178,7 +181,9 @@ class _RecurrencePickerState extends State<RecurrencePicker> {
           IconButton(
             visualDensity: VisualDensity.compact,
             icon: Icon(Icons.add, size: 16, color: c.textSoft),
-            onPressed: freq < 31
+            // BUG 16 fix: limite dinâmico por período.
+            // Semana tem 7 dias; mês tem até 31; ano é razoável até 31 também.
+            onPressed: freq < (period == RecPeriod.semana ? 7 : 31)
                 ? () {
                     setState(() => freq++);
                     _emit();

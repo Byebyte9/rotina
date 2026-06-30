@@ -252,6 +252,7 @@ class _PrefsBuilder {
   bool sleepReminder;
   int sleepReminderMinutesBefore;
   bool goodMorning;
+  bool hapticFeedback;
 
   _PrefsBuilder(NotificationPrefs p)
       : taskReminderBefore = p.taskReminderBefore,
@@ -263,7 +264,8 @@ class _PrefsBuilder {
         weeklyMetaSummary = p.weeklyMetaSummary,
         sleepReminder = p.sleepReminder,
         sleepReminderMinutesBefore = p.sleepReminderMinutesBefore,
-        goodMorning = p.goodMorning;
+        goodMorning = p.goodMorning,
+        hapticFeedback = p.hapticFeedback;
 
   NotificationPrefs build() => NotificationPrefs(
         taskReminderBefore: taskReminderBefore,
@@ -276,5 +278,6 @@ class _PrefsBuilder {
         sleepReminder: sleepReminder,
         sleepReminderMinutesBefore: sleepReminderMinutesBefore,
         goodMorning: goodMorning,
+        hapticFeedback: hapticFeedback,
       );
 }

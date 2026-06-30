@@ -137,14 +137,40 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   }
 
   // ── Digit field ───────────────────────────────────────────────────────────────
+  /// BUG 20 fix: distribui um código colado de 6 dígitos pelos campos.
+  /// Necessário porque `maxLength: 1` no TextField trunca o valor para 1
+  /// caractere ANTES de onChanged ser chamado — então checar
+  /// `val.length == 6` dentro de onChanged nunca seria verdadeiro com
+  /// maxLength fixo. A solução é interceptar via inputFormatters, que rodam
+  /// antes do truncamento por maxLength, e tratar paste manualmente ali.
+  void _handlePastedCode(String code) {
+    final digits = code.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length < 6) return;
+    final sixDigits = digits.substring(0, 6);
+    // Adia a escrita para depois do frame de formatação atual terminar —
+    // setar _ctrl[index].text de dentro do próprio TextInputFormatter do
+    // campo index pode reentrar no controller que está sendo formatado.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (int i = 0; i < 6; i++) {
+        _ctrl[i].text = sixDigits[i];
+      }
+      setState(() {});
+      _focus[5].unfocus();
+      _verify();
+    });
+  }
+
   Widget _digitField(int index) {
     return SizedBox(
       width: 44,
       height: 54,
-      child: RawKeyboardListener(
+      child: KeyboardListener(
+        // BUG 23 fix: RawKeyboardListener está deprecated desde Flutter 3.18.
+        // KeyboardListener é a API moderna equivalente.
         focusNode: FocusNode(skipTraversal: true),
-        onKey: (event) {
-          if (event is RawKeyDownEvent &&
+        onKeyEvent: (event) {
+          if (event is KeyDownEvent &&
               event.logicalKey == LogicalKeyboardKey.backspace &&
               _ctrl[index].text.isEmpty &&
               index > 0) {
@@ -157,9 +183,30 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
           focusNode: _focus[index],
           keyboardType: TextInputType.number,
           textAlign: TextAlign.center,
-          maxLength: 1,
+          // BUG 20 fix: maxLength removido daqui — controlado manualmente
+          // pelo formatter abaixo, para poder detectar paste de 6 dígitos
+          // antes de qualquer truncamento automático do Flutter.
           obscureText: false,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            TextInputFormatter.withFunction((oldValue, newValue) {
+              // Paste de código completo: intercepta aqui, antes do truncamento.
+              if (newValue.text.length >= 6) {
+                _handlePastedCode(newValue.text);
+                // Devolve o valor antigo para este campo específico — quem
+                // efetivamente preenche os 6 campos é _handlePastedCode acima.
+                return oldValue;
+              }
+              // Digitação normal: limita a 1 caractere neste campo.
+              if (newValue.text.length > 1) {
+                return TextEditingValue(
+                  text: newValue.text.characters.last,
+                  selection: const TextSelection.collapsed(offset: 1),
+                );
+              }
+              return newValue;
+            }),
+          ],
           style: GoogleFonts.inter(
             fontSize: 22,
             fontWeight: FontWeight.w700,

@@ -99,14 +99,27 @@ class ConfigScreen extends StatelessWidget {
                         style: AppFonts.playfair(color: c.cream, fontSize: 20, fontWeight: FontWeight.w600)),
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name, style: AppFonts.playfair(color: c.cream, fontSize: 16)),
-                  const SizedBox(height: 2),
-                  Text('Toque em Perfil para editar',
-                      style: AppFonts.inter(color: c.textMuted, fontSize: 12)),
-                ],
+              // BUG 11 fix: state.userEmail é populado no login/cadastro
+              // mas nunca aparecia em nenhuma tela do app. É informação
+              // útil (ex: confirmar com qual conta está logado).
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, style: AppFonts.playfair(color: c.cream, fontSize: 16)),
+                    if (state.userEmail.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        state.userEmail,
+                        style: AppFonts.inter(color: c.textSoft, fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const SizedBox(height: 2),
+                    Text('Toque em Perfil para editar',
+                        style: AppFonts.inter(color: c.textMuted, fontSize: 12)),
+                  ],
+                ),
               ),
             ],
           ),

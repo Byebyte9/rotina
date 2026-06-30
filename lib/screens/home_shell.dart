@@ -6,6 +6,7 @@ import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/add_edit_sheet.dart';
 import '../widgets/day_sheet.dart';
+import '../widgets/email_verification_banner.dart';
 import '../widgets/welcome_assistant.dart';
 import 'founder_screen.dart';
 import 'hoje_screen.dart';
@@ -13,6 +14,7 @@ import 'tarefas_screen.dart';
 import 'metas_screen.dart';
 import 'dashboard_screen.dart';
 import 'config_screen.dart';
+import 'verify_email_screen.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -163,9 +165,27 @@ class _HomeShellState extends State<HomeShell> {
           const SizedBox(width: 12),
         ],
       ),
-      body: IndexedStack(
-        index: currentIndex,
-        children: screens,
+      body: Column(
+        children: [
+          if (!state.emailVerified)
+            EmailVerificationBanner(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => VerifyEmailScreen(
+                    onVerified: () {
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ),
+              ),
+            ),
+          Expanded(
+            child: IndexedStack(
+              index: currentIndex,
+              children: screens,
+            ),
+          ),
+        ],
       ),
       floatingActionButton: currentIndex == 4
           ? null

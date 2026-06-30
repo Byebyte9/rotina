@@ -130,9 +130,36 @@ class _MetaCard extends StatelessWidget {
                 _ActionButton(
                   label: '＋ Registrar',
                   onTap: () => state.checkIn(meta.id),
+                  // BUG 4 fix: segurar o botão desfaz o último registro de
+                  // hoje, para corrigir um toque acidental sem esperar o
+                  // dia seguinte. Só tem efeito se já houver registro hoje.
+                  onLongPress: meta.todayCount > 0
+                      ? () {
+                          state.undoCheckIn(meta.id);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Último registro de hoje desfeito'),
+                              behavior: SnackBarBehavior.floating,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      : null,
                 ),
             ],
           ),
+          // BUG 4 fix: dica discreta, só aparece quando há algo a desfazer
+          // hoje — evita poluir a UI no caso comum (sem nenhum registro).
+          if (meta.type == MetaType.count && meta.todayCount > 0) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'Segure "Registrar" para desfazer',
+                style: AppFonts.inter(color: c.textMuted, fontSize: 10),
+              ),
+            ),
+          ],
           if (meta.type == MetaType.habit || meta.type == MetaType.count) ...[
             const SizedBox(height: 8),
             _CheckinHistory(meta: meta),
@@ -146,14 +173,21 @@ class _MetaCard extends StatelessWidget {
 class _ActionButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final bool active;
-  const _ActionButton({required this.label, required this.onTap, this.active = false});
+  const _ActionButton({
+    required this.label,
+    required this.onTap,
+    this.onLongPress,
+    this.active = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final c = AppTheme.of(context);
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
